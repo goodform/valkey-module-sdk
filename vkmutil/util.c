@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <limits.h>
 #include <string.h>
+#include <strings.h>
 #include <valkeymodule.h>
 #include "util.h"
 
@@ -57,9 +58,11 @@ VKMUtilInfo *VKMUtil_GetValkeyInfo(ValkeyModuleCtx *ctx) {
   info->entries = calloc(cap, sizeof(VKMUtilInfoEntry));
 
   int i = 0;
-  char *text = (char *)ValkeyModule_StringPtrLen(ValkeyModule_CreateStringFromCallReply(r), NULL);
+  size_t sz;
+  char *text = (char *)ValkeyModule_CallReplyStringPtr(r, &sz);
+
   char *line = text;
-  while (line) {
+  while (line && line < text + sz) {
     char *line = strsep(&text, "\r\n");
     if (line == NULL) break;
 
@@ -70,7 +73,6 @@ VKMUtilInfo *VKMUtil_GetValkeyInfo(ValkeyModuleCtx *ctx) {
     char *key = strsep(&line, ":");
     info->entries[i].key = key;
     info->entries[i].val = line;
-    //printf("Got info '%s' = '%s'\n", key, line);
     i++;
     if (i >= cap) {
       cap *= 2;
@@ -78,11 +80,15 @@ VKMUtilInfo *VKMUtil_GetValkeyInfo(ValkeyModuleCtx *ctx) {
     }
   }
   info->numEntries = i;
-
+  ValkeyModule_FreeCallReply(r);
   return info;
 }
-void VKMUtilValkeyInfo_Free(VKMUtilInfo *info) {
 
+void VKMUtilValkeyInfo_Free(VKMUtilInfo *info) {
+  for (int i = 0; i < info->numEntries; i++) {
+    free(info->entries[i].key);
+    free(info->entries[i].val);
+  }
   free(info->entries);
   free(info);
 }
@@ -122,7 +128,6 @@ int VKMUtilInfo_GetDouble(VKMUtilInfo *info, const char *key, double *d) {
   }
 
   *d = strtod(p, NULL);
-  //printf("p: %s, d: %f\n", p, *d);
   if ((errno == ERANGE && (*d == HUGE_VAL || *d == -HUGE_VAL)) || (errno != 0 && *d == 0)) {
     return 0;
   }
@@ -192,8 +197,7 @@ int vkmutil_vparseArgs(ValkeyModuleString **argv, int argc, int offset, const ch
   return VALKEYMODULE_OK;
 }
 
-int VKMUtil_ParseArgsAfter(const char *token, ValkeyModuleString **argv, int argc, const char *fmt,
-                          ...) {
+int VKMUtil_ParseArgsAfter(const char *token, ValkeyModuleString **argv, int argc, const char *fmt, ...) {
 
   int pos = VKMUtil_ArgIndex(token, argv, argc);
   if (pos < 0) {
@@ -207,8 +211,7 @@ int VKMUtil_ParseArgsAfter(const char *token, ValkeyModuleString **argv, int arg
   return rc;
 }
 
-ValkeyModuleCallReply *ValkeyModule_CallReplyArrayElementByPath(ValkeyModuleCallReply *rep,
-                                                              const char *path) {
+ValkeyModuleCallReply *ValkeyModule_CallReplyArrayElementByPath(ValkeyModuleCallReply *rep, const char *path) {
   if (rep == NULL) return NULL;
 
   ValkeyModuleCallReply *ele = rep;
@@ -230,4 +233,65 @@ ValkeyModuleCallReply *ValkeyModule_CallReplyArrayElementByPath(ValkeyModuleCall
   } while ((ele != NULL) && (*e != '\0'));
 
   return ele;
+}
+
+int ValkeyModule_TryGetValue(ValkeyModuleKey *key, const ValkeyModuleType *type, void **out) {
+  if (key == NULL) {
+    return VKMUTIL_VALUE_MISSING;
+  }
+  int keytype = ValkeyModule_KeyType(key);
+  if (keytype == VALKEYMODULE_KEYTYPE_EMPTY) {
+    return VKMUTIL_VALUE_EMPTY;
+  } else if (keytype == VALKEYMODULE_KEYTYPE_MODULE && ValkeyModule_ModuleTypeGetType(key) == type) {
+    *out = ValkeyModule_ModuleTypeGetValue(key);
+    return VKMUTIL_VALUE_OK;
+  } else {
+    return VKMUTIL_VALUE_MISMATCH;
+  }
+}
+
+ValkeyModuleString **VKMUtil_ParseVarArgs(ValkeyModuleString **argv, int argc, int offset, const char *keyword, size_t *nargs) {
+  if (offset > argc) {
+    return NULL;
+  }
+
+  argv += offset;
+  argc -= offset;
+
+  int ix = VKMUtil_ArgIndex(keyword, argv, argc);
+  if (ix < 0) {
+    return NULL;
+  } else if (ix >= argc - 1) {
+    *nargs = VKMUTIL_VARARGS_BADARG;
+    return argv;
+  }
+
+  argv += (ix + 1);
+  argc -= (ix + 1);
+
+  long long n = 0;
+  VKMUtil_ParseArgs(argv, argc, 0, "l", &n);
+  if (n > argc - 1 || n < 0) {
+    *nargs = VKMUTIL_VARARGS_BADARG;
+    return argv;
+  }
+
+  *nargs = n;
+  return argv + 1;
+}
+
+void VKMUtil_DefaultAofRewrite(ValkeyModuleIO *aof, ValkeyModuleString *key, void *value) {
+  ValkeyModuleCtx *ctx = ValkeyModule_GetThreadSafeContext(NULL);
+  ValkeyModuleCallReply *rep = ValkeyModule_Call(ctx, "DUMP", "s", key);
+  if (rep != NULL && ValkeyModule_CallReplyType(rep) == VALKEYMODULE_REPLY_STRING) {
+    size_t n;
+    const char *s = ValkeyModule_CallReplyStringPtr(rep, &n);
+    ValkeyModule_EmitAOF(aof, "RESTORE", "slb", key, 0, s, n);
+  } else {
+    ValkeyModule_Log(ValkeyModule_GetContextFromIO(aof), "warning", "Failed to emit AOF");
+  }
+  if (rep != NULL) {
+    ValkeyModule_FreeCallReply(rep);
+  }
+  ValkeyModule_FreeThreadSafeContext(ctx);
 }

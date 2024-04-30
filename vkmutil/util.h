@@ -6,19 +6,19 @@
 
 /// make sure the response is not NULL or an error, and if it is sends the error to the client and
 /// exit the current function
-#define VKMUTIL_ASSERT_NOERROR(ctx, r)                                  \
-  if (r == NULL) {                                                      \
-    return ValkeyModule_ReplyWithError(ctx, "ERR reply is NULL");        \
+#define VKMUTIL_ASSERT_NOERROR(ctx, r) \
+  if (r == NULL) { \
+    return ValkeyModule_ReplyWithError(ctx, "ERR reply is NULL"); \
   } else if (ValkeyModule_CallReplyType(r) == VALKEYMODULE_REPLY_ERROR) { \
-    ValkeyModule_ReplyWithCallReply(ctx, r);                             \
-    return VALKEYMODULE_ERR;                                             \
+    ValkeyModule_ReplyWithCallReply(ctx, r); \
+    return VALKEYMODULE_ERR; \
   }
 
-#define __vkmutil_register_cmd(ctx, cmd, f, mode)                                \
+#define __vkmutil_register_cmd(ctx, cmd, f, mode) \
   if (ValkeyModule_CreateCommand(ctx, cmd, f, mode, 1, 1, 1) == VALKEYMODULE_ERR) \
     return VALKEYMODULE_ERR;
 
-#define VKMUtil_RegisterReadCmd(ctx, cmd, f)      \
+#define VKMUtil_RegisterReadCmd(ctx, cmd, f) \
   __vkmutil_register_cmd(ctx, cmd, f, "readonly") \
   }
 
@@ -61,10 +61,27 @@ extern int VKMUtil_ParseArgsAfter(const char *token, ValkeyModuleString **argv, 
 
 extern int vkmutil_vparseArgs(ValkeyModuleString **argv, int argc, int offset, const char *fmt, va_list ap);
 
+#define VKMUTIL_VARARGS_BADARG ((size_t)-1)
+/**
+ * Parse arguments in the form of KEYWORD {len} {arg} .. {arg}_len.
+ * If keyword is present, returns the position within `argv` containing the arguments.
+ * Returns NULL if the keyword is not found.
+ * If a parse error has occurred, `nargs` is set to VKMUTIL_VARARGS_BADARG, but
+ * the return value is not NULL.
+ */
+ValkeyModuleString **VKMUtil_ParseVarArgs(ValkeyModuleString **argv, int argc, int offset, const char *keyword, size_t *nargs);
+
+/**
+ * Default implementation of an AoF rewrite function that simply calls DUMP/RESTORE
+ * internally. To use this function, pass it as the .aof_rewrite value in
+ * ValkeyModuleTypeMethods
+ */
+void VKMUtil_DefaultAofRewrite(ValkeyModuleIO *aof, ValkeyModuleString *key, void *value);
+
 // A single key/value entry in a valkey info map
 typedef struct {
-  const char *key;
-  const char *val;
+  char *key;
+  char *val;
 } VKMUtilInfoEntry;
 
 // Representation of INFO command response, as a list of k/v pairs
@@ -108,7 +125,32 @@ extern int VKMUtilInfo_GetDouble(VKMUtilInfo *info, const char *key, double *d);
 * the path "1 2 3" will return the 3rd element from the 2 element of the 1st
 * element from an array (or NULL if not found)
 */
-extern ValkeyModuleCallReply *ValkeyModule_CallReplyArrayElementByPath(ValkeyModuleCallReply *rep,
-                                                              const char *path);
+extern ValkeyModuleCallReply *ValkeyModule_CallReplyArrayElementByPath(ValkeyModuleCallReply *rep, const char *path);
+
+/*
+* Returns a call reply array's element given by a space-delimited path. E.g.,
+* the path "1 2 3" will return the 3rd element from the 2 element of the 1st
+* element from an array (or NULL if not found)
+*/
+ValkeyModuleCallReply *ValkeyModule_CallReplyArrayElementByPath(ValkeyModuleCallReply *rep, const char *path);
+
+/**
+ * Extract the module type from an opened key.
+ */
+typedef enum {
+  VKMUTIL_VALUE_OK = 0,
+  VKMUTIL_VALUE_MISSING,
+  VKMUTIL_VALUE_EMPTY,
+  VKMUTIL_VALUE_MISMATCH
+} VKMUtil_TryGetValueStatus;
+
+/**
+ * Tries to extract the module-specific type from the value.
+ * @param key an opened key (may be null)
+ * @param type the pointer to the type to match to
+ * @param[out] out if the value is present, will be set to it.
+ * @return a value in the @ref VKMUtil_TryGetValueStatus enum.
+ */
+int ValkeyModule_TryGetValue(ValkeyModuleKey *key, const ValkeyModuleType *type, void **out);
 
 #endif

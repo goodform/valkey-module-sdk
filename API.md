@@ -63,18 +63,18 @@ simple module that implements a command that outputs a random number.
 
     int HelloworldRand_ValkeyCommand(ValkeyModuleCtx *ctx, ValkeyModuleString **argv, int argc) {
         ValkeyModule_ReplyWithLongLong(ctx,rand());
-        return REDISMODULE_OK;
+        return VALKEYMODULE_OK;
     }
 
     int ValkeyModule_OnLoad(ValkeyModuleCtx *ctx, ValkeyModuleString **argv, int argc) {
-        if (ValkeyModule_Init(ctx,"helloworld",1,REDISMODULE_APIVER_1)
-            == REDISMODULE_ERR) return REDISMODULE_ERR;
+        if (ValkeyModule_Init(ctx,"helloworld",1,VALKEYMODULE_APIVER_1)
+            == VALKEYMODULE_ERR) return VALKEYMODULE_ERR;
 
         if (ValkeyModule_CreateCommand(ctx,"helloworld.rand",
-            HelloworldRand_ValkeyCommand) == REDISMODULE_ERR)
-            return REDISMODULE_ERR;
+            HelloworldRand_ValkeyCommand) == VALKEYMODULE_ERR)
+            return VALKEYMODULE_ERR;
 
-        return REDISMODULE_OK;
+        return VALKEYMODULE_OK;
     }
 
 The example module has two functions. One implements a command called
@@ -108,7 +108,7 @@ name, its version (that is reported by `MODULE LIST`), and that is willing
 to use a specific version of the API.
 
 If the API version is wrong, the name is already taken, or there are other
-similar errors, the function will return `REDISMODULE_ERR`, and the module
+similar errors, the function will return `VALKEYMODULE_ERR`, and the module
 `OnLoad` function should return ASAP with an error.
 
 Before the `Init` function is called, no other API function can be called,
@@ -221,7 +221,7 @@ is a function to do this:
 Similarly in order to parse a string as a number:
 
     long long myval;
-    if (ValkeyModule_StringToLongLong(ctx,argv[1],&myval) == REDISMODULE_OK) {
+    if (ValkeyModule_StringToLongLong(ctx,argv[1],&myval) == VALKEYMODULE_OK) {
         /* Do something with 'myval' */
     }
 
@@ -307,18 +307,18 @@ supported by the Valkey protocol), the function `ValkeyModule_CallReplyType()`
 is used:
 
     reply = ValkeyModule_Call(ctx,"INCR","sc",argv[1],"10");
-    if (ValkeyModule_CallReplyType(reply) == REDISMODULE_REPLY_INTEGER) {
+    if (ValkeyModule_CallReplyType(reply) == VALKEYMODULE_REPLY_INTEGER) {
         long long myval = ValkeyModule_CallReplyInteger(reply);
         /* Do something with myval. */
     }
 
 Valid reply types are:
 
-* `REDISMODULE_REPLY_STRING` Bulk string or status replies.
-* `REDISMODULE_REPLY_ERROR` Errors.
-* `REDISMODULE_REPLY_INTEGER` Signed 64 bit integers.
-* `REDISMODULE_REPLY_ARRAY` Array of replies.
-* `REDISMODULE_REPLY_NULL` NULL reply.
+* `VALKEYMODULE_REPLY_STRING` Bulk string or status replies.
+* `VALKEYMODULE_REPLY_ERROR` Errors.
+* `VALKEYMODULE_REPLY_INTEGER` Signed 64 bit integers.
+* `VALKEYMODULE_REPLY_ARRAY` Array of replies.
+* `VALKEYMODULE_REPLY_NULL` NULL reply.
 
 Strings, errors and arrays have an associated length. For strings and errors
 the length corresponds to the length of the string. For arrays the length
@@ -399,7 +399,7 @@ To return an error, use:
 
 There is a predefined error string for key of wrong type errors:
 
-    REDISMODULE_ERRORMSG_WRONGTYPE
+    VALKEYMODULE_ERRORMSG_WRONGTYPE
 
 Example usage:
 
@@ -446,7 +446,7 @@ later produce the command reply, a better solution is to start an array
 reply where the length is not known, and set it later. This is accomplished
 with a special argument to `ValkeyModule_ReplyWithArray()`:
 
-    ValkeyModule_ReplyWithArray(ctx, REDISMODULE_POSTPONED_ARRAY_LEN);
+    ValkeyModule_ReplyWithArray(ctx, VALKEYMODULE_POSTPONED_ARRAY_LEN);
 
 The above call starts an array reply so we can use other `ReplyWith` calls
 in order to produce the array items. Finally in order to set the length
@@ -457,7 +457,7 @@ se use the following call:
 In the case of the FACTOR command, this translates to some code similar
 to this:
 
-    ValkeyModule_ReplyWithArray(ctx, REDISMODULE_POSTPONED_ARRAY_LEN);
+    ValkeyModule_ReplyWithArray(ctx, VALKEYMODULE_POSTPONED_ARRAY_LEN);
     number_of_factors = 0;
     while(still_factors) {
         ValkeyModule_ReplyWithLongLong(ctx, some_factor);
@@ -472,9 +472,9 @@ It is possible to have multiple nested arrays with postponed reply.
 Each call to `SetArray()` will set the length of the latest corresponding
 call to `ReplyWithArray()`:
 
-    ValkeyModule_ReplyWithArray(ctx, REDISMODULE_POSTPONED_ARRAY_LEN);
+    ValkeyModule_ReplyWithArray(ctx, VALKEYMODULE_POSTPONED_ARRAY_LEN);
     ... generate 100 elements ...
-    ValkeyModule_ReplyWithArray(ctx, REDISMODULE_POSTPONED_ARRAY_LEN);
+    ValkeyModule_ReplyWithArray(ctx, VALKEYMODULE_POSTPONED_ARRAY_LEN);
     ... generate 10 elements ...
     ValkeyModule_ReplySetArrayLength(ctx, 10);
     ValkeyModule_ReplySetArrayLength(ctx, 100);
@@ -492,14 +492,14 @@ called `ValkeyModule_WrongArity()`. The usage is trivial:
 Checking for the wrong type involves opening the key and checking the type:
 
     ValkeyModuleKey *key = ValkeyModule_OpenKey(ctx,argv[1],
-        REDISMODULE_READ|REDISMODULE_WRITE);
+        VALKEYMODULE_READ|VALKEYMODULE_WRITE);
 
     int keytype = ValkeyModule_KeyType(key);
-    if (keytype != REDISMODULE_KEYTYPE_STRING &&
-        keytype != REDISMODULE_KEYTYPE_EMPTY)
+    if (keytype != VALKEYMODULE_KEYTYPE_STRING &&
+        keytype != VALKEYMODULE_KEYTYPE_EMPTY)
     {
         ValkeyModule_CloseKey(key);
-        return ValkeyModule_ReplyWithError(ctx,REDISMODULE_ERRORMSG_WRONGTYPE);
+        return ValkeyModule_ReplyWithError(ctx,VALKEYMODULE_ERRORMSG_WRONGTYPE);
     }
 
 Note that you often want to proceed with a command both if the key
@@ -526,10 +526,10 @@ a key pointer, that we'll use with all the next calls to access and modify
 the value:
 
     ValkeyModuleKey *key;
-    key = ValkeyModule_OpenKey(ctx,argv[1],REDISMODULE_READ);
+    key = ValkeyModule_OpenKey(ctx,argv[1],VALKEYMODULE_READ);
 
 The second argument is the key name, that must be a `ValkeyModuleString` object.
-The third argument is the mode: `REDISMODULE_READ` or `REDISMODULE_WRITE`.
+The third argument is the mode: `VALKEYMODULE_READ` or `VALKEYMODULE_WRITE`.
 It is possible to use `|` to bitwise OR the two modes to open the key in
 both modes. Currently a key opened for writing can also be accessed for reading
 but this is to be considered an implementation detail. The right mode should
@@ -556,12 +556,12 @@ In order to obtain the value of a key, use the `ValkeyModule_KeyType()` function
 
 It returns one of the following values:
 
-    REDISMODULE_KEYTYPE_EMPTY
-    REDISMODULE_KEYTYPE_STRING
-    REDISMODULE_KEYTYPE_LIST
-    REDISMODULE_KEYTYPE_HASH
-    REDISMODULE_KEYTYPE_SET
-    REDISMODULE_KEYTYPE_ZSET
+    VALKEYMODULE_KEYTYPE_EMPTY
+    VALKEYMODULE_KEYTYPE_STRING
+    VALKEYMODULE_KEYTYPE_LIST
+    VALKEYMODULE_KEYTYPE_HASH
+    VALKEYMODULE_KEYTYPE_SET
+    VALKEYMODULE_KEYTYPE_ZSET
 
 The above are just the usual Valkey key types, with the addition of an empty
 type, that signals the key pointer is associated with an empty key that
@@ -573,8 +573,8 @@ To create a new key, open it for writing and then write to it using one
 of the key writing functions. Example:
 
     ValkeyModuleKey *key;
-    key = ValkeyModule_OpenKey(ctx,argv[1],REDISMODULE_READ);
-    if (ValkeyModule_KeyType(key) == REDISMODULE_KEYTYPE_EMPTY) {
+    key = ValkeyModule_OpenKey(ctx,argv[1],VALKEYMODULE_READ);
+    if (ValkeyModule_KeyType(key) == VALKEYMODULE_KEYTYPE_EMPTY) {
         ValkeyModule_StringSet(key,argv[2]);
     }
 
@@ -584,7 +584,7 @@ Just use:
 
     ValkeyModule_DeleteKey(key);
 
-The function returns `REDISMODULE_ERR` if the key is not open for writing.
+The function returns `VALKEYMODULE_ERR` if the key is not open for writing.
 Note that after a key gets deleted, it is setup in order to be targeted
 by new key commands. For example `ValkeyModule_KeyType()` will return it is
 an empty key, and writing to it will create a new key, possibly of another
@@ -600,15 +600,15 @@ One function is used in order to query the current expire of an open key:
     mstime_t ValkeyModule_GetExpire(ValkeyModuleKey *key);
 
 The function returns the time to live of the key in milliseconds, or
-`REDISMODULE_NO_EXPIRE` as a special value to signal the key has no associated
+`VALKEYMODULE_NO_EXPIRE` as a special value to signal the key has no associated
 expire or does not exist at all (you can differentiate the two cases checking
-if the key type is `REDISMODULE_KEYTYPE_EMPTY`).
+if the key type is `VALKEYMODULE_KEYTYPE_EMPTY`).
 
 In order to change the expire of a key the following function is used instead:
 
     int ValkeyModule_SetExpire(ValkeyModuleKey *key, mstime_t expire);
 
-When called on a non existing key, `REDISMODULE_ERR` is returned, because
+When called on a non existing key, `VALKEYMODULE_ERR` is returned, because
 the function can only associate expires to existing open keys (non existing
 open keys are only useful in order to create new values with data type
 specific write operations).
@@ -617,7 +617,7 @@ Again the `expire` time is specified in milliseconds. If the key has currently
 no expire, a new expire is set. If the key already have an expire, it is
 replaced with the new value.
 
-If the key has an expire, and the special value `REDISMODULE_NO_EXPIRE` is
+If the key has an expire, and the special value `VALKEYMODULE_NO_EXPIRE` is
 used as a new expire, the expire is removed, similarly to the Valkey
 `PERSIST` command. In case the key was already persistent, no operation is
 performed.
@@ -648,7 +648,7 @@ access) for speed. The API will return a pointer and a length, so that's
 possible to access and, if needed, modify the string directly.
 
     size_t len, j;
-    char *myptr = ValkeyModule_StringDMA(key,&len,REDISMODULE_WRITE);
+    char *myptr = ValkeyModule_StringDMA(key,&len,VALKEYMODULE_WRITE);
     for (j = 0; j < len; j++) myptr[j] = 'A';
 
 In the above example we write directly on the string. Note that if you want
@@ -681,8 +681,8 @@ It's possible to push and pop values from list values:
 In both the APIs the `where` argument specifies if to push or pop from tail
 or head, using the following macros:
 
-    REDISMODULE_LIST_HEAD
-    REDISMODULE_LIST_TAIL
+    VALKEYMODULE_LIST_HEAD
+    VALKEYMODULE_LIST_TAIL
 
 Elements returned by `ValkeyModule_ListPop()` are like strings craeted with
 `ValkeyModule_CreateString()`, they must be released with

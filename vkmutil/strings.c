@@ -2,7 +2,7 @@
 #include <sys/param.h>
 #include <ctype.h>
 #include "strings.h"
-
+#include "alloc.h"
 
 #include "sds.h"
 
@@ -20,8 +20,6 @@
 // }
 
 int VKMUtil_StringEquals(ValkeyModuleString *s1, ValkeyModuleString *s2) {
-    
-    
     const char *c1, *c2;
     size_t l1, l2;
     c1 = ValkeyModule_StringPtrLen(s1, &l1);
@@ -32,8 +30,6 @@ int VKMUtil_StringEquals(ValkeyModuleString *s1, ValkeyModuleString *s2) {
 }
 
 int VKMUtil_StringEqualsC(ValkeyModuleString *s1, const char *s2) {
-    
-    
     const char *c1;
     size_t l1, l2 = strlen(s2);
     c1 = ValkeyModule_StringPtrLen(s1, &l1);
@@ -42,8 +38,16 @@ int VKMUtil_StringEqualsC(ValkeyModuleString *s1, const char *s2) {
     return strncmp(c1, s2, l1) == 0;
 }
 
+int VKMUtil_StringEqualsCaseC(ValkeyModuleString *s1, const char *s2) {
+    const char *c1;
+    size_t l1, l2 = strlen(s2);
+    c1 = ValkeyModule_StringPtrLen(s1, &l1);
+    if (l1 != l2) return 0;
+
+    return strncasecmp(c1, s2, l1) == 0;
+}
+
 void VKMUtil_StringToLower(ValkeyModuleString *s) {
-    
     size_t l;
     char *c = (char *)ValkeyModule_StringPtrLen(s, &l);
     size_t i;
@@ -51,7 +55,6 @@ void VKMUtil_StringToLower(ValkeyModuleString *s) {
         *c = tolower(*c);
         ++c;
     }
-    
 }
 
 void VKMUtil_StringToUpper(ValkeyModuleString *s) {
@@ -62,6 +65,14 @@ void VKMUtil_StringToUpper(ValkeyModuleString *s) {
         *c = toupper(*c);
         ++c;
     }
-    
-    
+}
+
+void VKMUtil_StringConvert(ValkeyModuleString **rs, const char **ss, size_t n, int options) {
+    for (size_t ii = 0; ii < n; ++ii) {
+        const char *p = ValkeyModule_StringPtrLen(rs[ii], NULL);
+        if (options & VKMUTIL_STRINGCONVERT_COPY) {
+            p = strdup(p);
+        }
+        ss[ii] = p;
+    }
 }

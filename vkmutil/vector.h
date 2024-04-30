@@ -70,6 +70,6 @@ extern int Vector_Cap(Vector *v);
  * they are pointers*/
 extern void Vector_Free(Vector *v);
 
-extern int __vecotr_PutPtr(Vector *v, size_t pos, void *elem);
+extern int __vector_PutPtr(Vector *v, size_t pos, void *elem);
 
 #endif
